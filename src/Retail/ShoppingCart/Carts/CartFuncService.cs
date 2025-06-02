@@ -12,26 +12,20 @@ public class CartFuncService : FunctionalCommandService<CartState>
     [Obsolete("Obsolete according to Eventuous - TBU")]
     public CartFuncService(
         IEventStore store,
-        ICombIdGenerator idGenerator,
-        IPriceQuoter priceQuoter)
+        ICombIdGenerator idGenerator)
         : base(store)
     {
         var generatedId = idGenerator.New();
 
-        OnNew<Commands.OpenCart>(cmd
-            => GetStream(generatedId), OpenCart);
+        OnNew<Commands.OpenCart>(cmd => GetStream(generatedId), OpenCart);
 
-        OnExisting<Commands.AddProductToCart>(cmd
-            => GetStream(cmd.CartId), AddProductToCart);
+        OnExisting<Commands.AddProductToCart>(cmd => GetStream(cmd.CartId), AddProductToCart);
 
-        OnExisting<Commands.RemoveProductFromCart>(cmd
-            => GetStream(cmd.CartId), RemoveProductFromCart);
+        OnExisting<Commands.RemoveProductFromCart>(cmd => GetStream(cmd.CartId), RemoveProductFromCart);
 
-        OnExisting<Commands.ConfirmCart>(cmd
-            => GetStream(cmd.CartId), ConfirmCart);
+        OnExisting<Commands.ConfirmCart>(cmd => GetStream(cmd.CartId), ConfirmCart);
 
-        OnExisting<Commands.CancelCart>(cmd
-            => GetStream(cmd.CartId), CancelCart);
+        OnExisting<Commands.CancelCart>(cmd => GetStream(cmd.CartId), CancelCart);
 
         static StreamName GetStream(string id) => new($"Cart-{id}");
 
@@ -45,18 +39,19 @@ public class CartFuncService : FunctionalCommandService<CartState>
             object[] originalEvents,
             Commands.AddProductToCart cmd)
         {
-            var priced = priceQuoter.Quote(new ProductId(cmd.ProductId));
-
-            var added = new Events.PricedProductAddedToCart(
-                cmd.CartId,
-                cmd.ProductId,
-                priced.PriceId,
-                priced.UnitPrice,
-                cmd.Quantity);
-            yield return added;
-
-            var newState = state.When(added);
-            // can evaluate new state's behavior to emit other events, etc
+            if (state.CanProceedToCheckout())
+            {
+                var customerId = state.CustomerId.ToString();
+                var productIds = state.ProductItems.Values.Select(pi => pi.ProductId.ToString()).ToArray();
+                var totalPriceQuoted = 99.99m; // priceQuoter.QuoteTotal(productIds);
+                var confirmedAt = DateTime.Now;
+                yield return new Events.CartConfirmed(
+                    cmd.CartId,
+                    customerId,
+                    productIds,
+                    totalPriceQuoted,
+                    confirmedAt);
+            }
         }
 
         static IEnumerable<object> RemoveProductFromCart(

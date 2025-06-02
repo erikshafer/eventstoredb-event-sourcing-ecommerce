@@ -9,10 +9,7 @@ public record CartState : State<CartState>
     public CartId Id { get; init; } = null!;
     public CustomerId CustomerId { get; init; } = null!;
     public CartStatus Status { get; init; } = CartStatus.Unset;
-
     public ProductItems ProductItems { get; init; } = null!;
-    public PricedProductItems PricedProductItems { get; init; } = null!;
-
     public bool HasItems => ProductItems.IsEmpty;
 
     public bool CanProceedToCheckout() => Status switch
